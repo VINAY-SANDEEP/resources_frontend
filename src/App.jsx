@@ -18,6 +18,15 @@ function App() {
   const [showMessage, setShowMessage] = useState(false);
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingResource, setEditingResource] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    subjectName: '',
+    unitName: '',
+    topic: '',
+    extraInfo: '',
+    secretCode: ''
+  });
 
   useEffect(() => {
     if (activePanel === 'admin') {
@@ -45,8 +54,23 @@ function App() {
     }));
   };
 
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleFileChange = (e) => {
     setPdfFile(e.target.files[0]);
+  };
+
+  const handleEditFileChange = (e) => {
+    setEditingResource(prev => ({
+      ...prev,
+      newPdfFile: e.target.files[0]
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -117,6 +141,56 @@ function App() {
     } catch (error) {
       setMessage({ 
         text: error.response?.data?.message || 'Error deleting resource', 
+        type: 'error' 
+      });
+      setShowMessage(true);
+    }
+  };
+
+  const handleEdit = (resource) => {
+    setEditingResource(resource);
+    setEditFormData({
+      subjectName: resource.subjectName,
+      unitName: resource.unitName,
+      topic: resource.topic,
+      extraInfo: resource.extraInfo || '',
+      secretCode: formData.secretCode
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    
+    const data = new FormData();
+    data.append('subjectName', editFormData.subjectName);
+    data.append('unitName', editFormData.unitName);
+    data.append('topic', editFormData.topic);
+    data.append('extraInfo', editFormData.extraInfo);
+    data.append('secretCode', editFormData.secretCode);
+    
+    if (editingResource.newPdfFile) {
+      data.append('pdf', editingResource.newPdfFile);
+    }
+
+    try {
+      await axios.put(`${API_PATH}/api/resources/${editingResource._id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setMessage({ text: 'Resource updated successfully!', type: 'success' });
+      setShowMessage(true);
+      setShowEditModal(false);
+      fetchResources();
+      
+      setTimeout(() => {
+        setShowMessage(false);
+      }, 3000);
+    } catch (error) {
+      setMessage({ 
+        text: error.response?.data?.message || 'Error updating resource', 
         type: 'error' 
       });
       setShowMessage(true);
@@ -223,17 +297,114 @@ function App() {
                     <p><strong>Additional Info:</strong> {resource.extraInfo}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => handleDelete(resource._id)}
-                  className="delete-btn"
-                >
-                  Delete Resource
-                </button>
+                <div className="resource-actions">
+                  <button
+                    onClick={() => handleEdit(resource)}
+                    className="edit-btn"
+                  >
+                    Edit Resource
+                  </button>
+                  <button
+                    onClick={() => handleDelete(resource._id)}
+                    className="delete-btn"
+                  >
+                    Delete Resource
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Edit Resource</h2>
+            <form onSubmit={handleUpdate}>
+              <div className="form-group">
+                <label htmlFor="edit-subjectName">Subject Name:</label>
+                <input
+                  type="text"
+                  id="edit-subjectName"
+                  name="subjectName"
+                  value={editFormData.subjectName}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-unitName">Unit Name:</label>
+                <input
+                  type="text"
+                  id="edit-unitName"
+                  name="unitName"
+                  value={editFormData.unitName}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-topic">Topic:</label>
+                <input
+                  type="text"
+                  id="edit-topic"
+                  name="topic"
+                  value={editFormData.topic}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-extraInfo">Extra Information:</label>
+                <textarea
+                  id="edit-extraInfo"
+                  name="extraInfo"
+                  value={editFormData.extraInfo}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-pdf">Update PDF (optional):</label>
+                <input
+                  type="file"
+                  id="edit-pdf"
+                  name="pdf"
+                  accept=".pdf"
+                  onChange={handleEditFileChange}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="edit-secretCode">Admin Secret Code:</label>
+                <input
+                  type="password"
+                  id="edit-secretCode"
+                  name="secretCode"
+                  value={editFormData.secretCode}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="modal-buttons">
+                <button type="submit" className="update-btn">Update Resource</button>
+                <button 
+                  type="button" 
+                  className="cancel-btn"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 
